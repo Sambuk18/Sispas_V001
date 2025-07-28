@@ -1,0 +1,37 @@
+# Entornos virtuales de Python
+venv/
+.env/
+.env*/
+*.venv/
+
+# Bytecode y caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de desarrollo y IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+
+# Logs y bases de datos locales
+*.log
+*.sqlite
+*.db
+
+# Archivos de configuración sensible
+#*.env
+#*.key
+#*.secret
+
+# Archivos generados por el sistema
+.DS_Store
+Thumbs.db
+
+# Directorios de instalación de paquetes
+*.egg-info/
+*.egg
+build/
+dist/

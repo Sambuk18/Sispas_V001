@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <h1>{{ cliente.id if cliente else 'Nuevo Cliente' }}</h1>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                {{ form.nro_cli.label(class="form-label") }}
+                {{ form.nro_cli(class="form-control") }}
+            </div>
+            <div class="col-md-6 mb-3">
+                {{ form.num_soc.label(class="form-label") }}
+                {{ form.num_soc(class="form-control") }}
+            </div>
+            <!-- Agrega más campos como corresponda -->
+        </div>
+
+        <button type="submit" class="btn btn-success">Guardar</button>
+        <a href="{{ url_for('list_clientes') }}" class="btn btn-secondary">Volver</a>
+    </form>
+</div>
+{% endblock %}

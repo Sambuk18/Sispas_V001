@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Compañías de Seguros{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mt-4">Compañías de Seguros</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Compañías</li>
+    </ol>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-building me-1"></i>
+            Listado de Compañías
+            <a href="{{ url_for('companias.create_compania') }}" class="btn btn-primary btn-sm float-end">
+                <i class="fas fa-plus"></i> Nueva Compañía
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Contacto</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Comisión</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for compania in companias.items %}
+                        <tr>
+                            <td>{{ compania.nombre }}</td>
+                            <td>{{ compania.contacto }}</td>
+                            <td>{{ compania.telefono }}</td>
+                            <td>{{ compania.email }}</td>
+                            <td>{{ compania.comision }}%</td>
+                            <td>
+                                <a href="{{ url_for('companias.edit_compania', id=compania.id) }}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <form action="{{ url_for('companias.delete_compania', id=compania.id) }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('¿Estás seguro de desactivar esta compañía?')">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <nav aria-label="Pagination">
+                    <ul class="pagination">
+                        {% if companias.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('companias.list_companias', page=companias.prev_num) }}">Anterior</a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in companias.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=3) %}
+                            {% if page_num %}
+                                {% if companias.page == page_num %}
+                                <li class="page-item active">
+                                    <a class="page-link" href="{{ url_for('companias.list_companias', page=page_num) }}">{{ page_num }}</a>
+                                </li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('companias.list_companias', page=page_num) }}">{{ page_num }}</a>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if companias.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('companias.list_companias', page=companias.next_num) }}">Siguiente</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

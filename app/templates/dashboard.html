@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="dashboard-header text-center">
+        <h1>Bienvenido al Panel de Control</h1>
+        <p class="lead">Sistema de Administración de Seguros</p>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Clientes</div>
+                <div class="card-body">
+                    <h5 class="card-title">Gestión de Clientes</h5>
+                    <p class="card-text">Agregar, editar o buscar clientes.</p>
+                    <a href="#" class="btn btn-light">Ir</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Pólizas</div>
+                <div class="card-body">
+                    <h5 class="card-title">Administrar Pólizas</h5>
+                    <p class="card-text">Ver y gestionar pólizas de seguros.</p>
+                    <a href="#" class="btn btn-light">Ir</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-info mb-3">
+                <div class="card-header">Pagos</div>
+                <div class="card-body">
+                    <h5 class="card-title">Historial de Pagos</h5>
+                    <p class="card-text">Consultar pagos registrados.</p>
+                    <a href="#" class="btn btn-light">Ir</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

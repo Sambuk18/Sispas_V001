@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Recibo {{ recibo.numero }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .logo { max-width: 150px; }
+        .titulo { font-size: 24px; font-weight: bold; }
+        .recibo-numero { font-size: 18px; margin: 10px 0; }
+        .fecha { text-align: right; margin-bottom: 20px; }
+        .datos-cliente { margin-bottom: 30px; }
+        .tabla-detalle { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .tabla-detalle th, .tabla-detalle td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+        }
+        .tabla-detalle th { background-color: #f2f2f2; }
+        .total { font-size: 18px; font-weight: bold; text-align: right; }
+        .footer { margin-top: 50px; text-align: center; font-size: 12px; }
+        .firma { margin-top: 70px; border-top: 1px solid #000; width: 300px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="titulo">SISTEMA SEGUROS PAS</div>
+        <div class="recibo-numero">RECIBO: {{ recibo.numero }}</div>
+    </div>
+    
+    <div class="fecha">
+        <strong>Fecha:</strong> {{ fecha.strftime('%d/%m/%Y') }}
+    </div>
+    
+    <div class="datos-cliente">
+        <p><strong>Cliente:</strong> {{ recibo.poliza.cliente.nombre }}</p>
+        <p><strong>Póliza:</strong> {{ recibo.poliza.numero }}</p>
+        <p><strong>Producto:</strong> {{ recibo.poliza.producto.nombre }}</p>
+    </div>
+    
+    <table class="tabla-detalle">
+        <thead>
+            <tr>
+                <th>Descripción</th>
+                <th>Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Pago de prima póliza {{ recibo.poliza.numero }}</td>
+                <td>${{ "{:,.2f}".format(recibo.monto) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div class="total">
+        TOTAL: ${{ "{:,.2f}".format(recibo.monto) }}
+    </div>
+    
+    <div class="footer">
+        <p>Av. Siempreviva 742 - Springfield</p>
+        <p>Tel: 555-1234 - Email: info@sspas.com.ar</p>
+        <p>CUIT: 30-12345678-9</p>
+        
+        <div style="margin-top: 50px;">
+            <div class="firma"></div>
+            <p>Firma y Sello</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+Hola {{ user.username }},
+
+Gracias por registrarte en nuestro sistema de seguros. Para completar tu registro, por favor confirma tu cuenta visitando el siguiente enlace:
+
+{{ confirm_url }}
+
+Si no has solicitado este registro, puedes ignorar este mensaje.
+
+© {{ now.year }} Sistema Seguros PAS. Todos los derechos reservados.

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Recibos{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Recibos</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Recibos</li>
+    </ol>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="fas fa-file-invoice me-1"></i>
+            Listado de Recibos
+            <div class="float-end">
+                <a href="{{ url_for('recibos.create_recibo') }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus me-1"></i> Nuevo Recibo
+                </a>
+                <a href="{{ url_for('recibos.generar_masivo') }}" class="btn btn-secondary btn-sm ms-2">
+                    <i class="fas fa-bolt me-1"></i> Generación Masiva
+                </a>
+            </div>
+        </div>
+        
+        <div class="card-body">
+            <div class="mb-3">
+                <div class="btn-group" role="group">
+                    <a href="{{ url_for('recibos.list_recibos', estado='todos') }}" 
+                       class="btn btn-outline-secondary {% if estado_actual == 'todos' %}active{% endif %}">
+                        Todos
+                    </a>
+                    <a href="{{ url_for('recibos.list_recibos', estado='pendientes') }}" 
+                       class="btn btn-outline-warning {% if estado_actual == 'pendientes' %}active{% endif %}">
+                        Pendientes
+                    </a>
+                    <a href="{{ url_for('recibos.list_recibos', estado='pagados') }}" 
+                       class="btn btn-outline-success {% if estado_actual == 'pagados' %}active{% endif %}">
+                        Pagados
+                    </a>
+                    <a href="{{ url_for('recibos.list_recibos', estado='vencidos') }}" 
+                       class="btn btn-outline-danger {% if estado_actual == 'vencidos' %}active{% endif %}">
+                        Vencidos
+                    </a>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Número</th>
+                            <th>Póliza</th>
+                            <th>Cliente</th>
+                            <th>Emisión</th>
+                            <th>Vencimiento</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for recibo in recibos.items %}
+                        <tr>
+                            <td>{{ recibo.numero }}</td>
+                            <td>
+                                <a href="{{ url_for('polizas.view_poliza', id=recibo.poliza_id) }}">
+                                    {{ recibo.poliza.numero }}
+                                </a>
+                            </td>
+                            <td>{{ recibo.poliza.cliente.nombre }}</td>
+                            <td>{{ recibo.fecha_emision.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                {% if recibo.fecha_vencimiento %}
+                                    {{ recibo.fecha_vencimiento.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>${{ "{:,.2f}".format(recibo.monto) }}</td>
+                            <td>
+                                {% if recibo.estado == 'pendiente' %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif recibo.estado == 'pagado' %}
+                                    <span class="badge bg-success">Pagado</span>
+                                {% elif recibo.estado == 'vencido' %}
+                                    <span class="badge bg-danger">Vencido</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ recibo.estado }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('recibos.view_recibo', id=recibo.id) }}" 
+                                   class="btn btn-sm btn-primary" title="Ver">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if recibo.estado == 'pendiente' %}
+                                    <a href="{{ url_for('recibos.add_pago', id=recibo.id) }}" 
+                                       class="btn btn-sm btn-success" title="Registrar Pago">
+                                        <i class="fas fa-money-bill-wave"></i>
+                                    </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center">No hay recibos registrados</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <nav aria-label="Pagination">
+                    <ul class="pagination justify-content-center">
+                        {% if recibos.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('recibos.list_recibos', page=recibos.prev_num, estado=estado_actual) }}">
+                                &laquo;
+                            </a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in recibos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=3) %}
+                            {% if page_num %}
+                                <li class="page-item {% if page_num == recibos.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('recibos.list_recibos', page=page_num, estado=estado_actual) }}">
+                                        {{ page_num }}
+                                    </a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if recibos.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('recibos.list_recibos', page=recibos.next_num, estado=estado_actual) }}">
+                                &raquo;
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

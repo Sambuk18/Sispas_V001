@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Estado de Sincronización{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Estado de Sincronización DBF → SQL</h2>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <p><strong>Última verificación:</strong> {{ status.last_check or "Nunca" }}</p>
+            <p><strong>Registros procesados:</strong> {{ status.total_processed }}</p>
+
+            {% if status.errors %}
+            <div class="alert alert-danger mt-3">
+                <h5>Errores:</h5>
+                <ul class="mb-0">
+                    {% for error in status.errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5>Archivos Monitoreados</h5>
+            <ul class="mb-0">
+                {% for file in files %}
+                <li>{{ file }} (Última posición: {{ status.last_positions.get(file, 0) }})</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <a href="{{ url_for('recibos.consulta_recibos') }}" class="btn btn-secondary mt-4">← Volver a Recibos</a>
+</div>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Consulta de Recibos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Consultar Recibos por Fecha</h2>
+        <form method="POST" action="{{ url_for('dbf_sync.sincronizar_datos') }}" onsubmit="mostrarCarga()">
+            <button type="submit" class="btn btn-warning btn-sm">
+                <i class="fas fa-sync-alt"></i> Actualizar Datos
+            </button>
+        </form>
+    </div>
+
+    <div id="progresoCarga" style="display:none; margin-top: 15px;">
+        <div class="alert alert-info">
+            <strong>Procesando...</strong> Por favor espera mientras se sincronizan los datos.
+        </div>
+        <div class="progress">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" 
+                role="progressbar" style="width: 100%"></div>
+        </div>
+    </div>
+
+    <form method="POST" class="mb-4">
+        <div class="form-group">
+            <label for="fecha">Fecha (DD-MM-AAAA):</label>
+            <input type="date" id="fecha" name="fecha" class="form-control w-25" 
+                   value="{{ fecha|default(current_date) }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">Buscar</button>
+    </form>
+
+    {% if recibos %}
+        <h4>Recibos encontrados:</h4>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-sm">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Prod-Recibo</th>
+                        <th>Compañía</th>
+                        <th>Cliente</th>
+                        <th>Dominio</th>
+                        <th>Vehículo</th>
+                        <th>Modelo</th>
+                        <th>Monto $</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for recibo in recibos %}
+                    <tr>
+                        <td>{{ recibo.recibo_completo }}</td>
+                        <td>{{ recibo.cia_ase }}</td>
+                        <td>{{ recibo.des_gasto }}</td>
+                        <td>{{ recibo.pat_ent }}</td>
+                        <td>{{ recibo.mar_ca }}</td>
+                        <td>{{ recibo.ano_mod }}</td>
+                        <td>{{ "$ %.2f"|format(recibo.premio|float) }}</td>
+                        <td>
+                            <!-- Botón PDF simple -->
+                            <form action="{{ url_for('recibos.generar_pdf') }}" method="POST" target="_blank" class="d-inline">
+                                {% for clave, valor in recibo.items() %}
+                                    <input type="hidden" name="{{ clave }}" value="{{ valor }}">
+                                {% endfor %}
+                                <button type="submit" class="btn btn-sm btn-success">PDF</button>
+                            </form>
+
+                            <!-- Botón PDF con deuda -->
+                            <form action="{{ url_for('recibos.generar_pdf_debe') }}" method="POST" target="_blank" class="d-inline">
+                                {% for clave, valor in recibo.items() %}
+                                    <input type="hidden" name="{{ clave }}" value="{{ valor }}">
+                                {% endfor %}
+                                <button type="submit" class="btn btn-sm btn-outline-warning">Debe</button>
+                            </form>
+
+                            <!-- Botón enviar por mail -->
+                            <form action="{{ url_for('recibos.enviar_pdf') }}" method="POST" class="d-inline">
+                                {% for clave, valor in recibo.items() %}
+                                    <input type="hidden" name="{{ clave }}" value="{{ valor }}">
+                                {% endfor %}
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Mail</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% elif fecha %}
+        <p class="text-danger">No se encontraron recibos para la fecha proporcionada.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function mostrarCarga() {
+    document.getElementById("progresoCarga").style.display = "block";
+}
+</script>
+{% endblock %}

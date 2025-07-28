@@ -1,0 +1,310 @@
+import logging
+#logging.disable(logging.CRITICAL)
+import mariadb
+import time
+from datetime import date, datetime
+from typing import List, Dict, Any, Tuple
+import logging
+from config import Config
+import traceback
+from dbf_utils import read_dbf, calculate_hash
+
+# Configuración de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def get_db_connection(max_retries: int = 3, retry_delay: int = 2) -> mariadb.connection:
+    """Establece conexión con MariaDB con reintentos"""
+    attempt = 0
+    last_error = None
+    
+    while attempt < max_retries:
+        try:
+            conn = mariadb.connect(**Config.DB_CONFIG)
+            logger.info("Conexión a MariaDB establecida correctamente")
+            return conn
+        except mariadb.Error as e:
+            last_error = e
+            attempt += 1
+            logger.warning(f"Intento {attempt}/{max_retries} fallido: {str(e)}")
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+    
+    logger.error("No se pudo establecer conexión con MariaDB")
+    raise RuntimeError(f"No se pudo conectar a MariaDB después de {max_retries} intentos: {str(last_error)}")
+
+def _determine_column_type(field_name: str, value: Any, sample_records: List[Dict[str, Any]]) -> str:
+    """Determina el tipo de columna SQL con análisis de longitud"""
+    field_lower = field_name.lower()
+    
+    # Campos especiales
+    if field_lower in ['cuit', 'cuil', 'dni', 'codigo']:
+        return "VARCHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+    
+    # Análisis de longitud para campos de texto
+    if isinstance(value, str):
+        try:
+            max_len = max(len(str(rec.get(field_name, ''))) for rec in sample_records)
+            max_len = max(max_len, len(str(value)))
+            padding = 10
+            
+            if max_len + padding <= 255:
+                return f"VARCHAR({max_len + padding}) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            return "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+        except Exception as e:
+            logger.warning(f"Error calculando longitud para {field_name}: {str(e)}")
+            return "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+    
+    elif isinstance(value, int):
+        return "BIGINT" if abs(value) > 2147483647 else "INT"
+    elif isinstance(value, float):
+        return "DECIMAL(15,2)"
+    elif isinstance(value, (datetime, date)):
+        return "DATETIME"
+    elif isinstance(value, bool):
+        return "BOOLEAN"
+    return "TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+
+def create_table_from_dbf(conn: mariadb.connection, file_name: str, force_recreate: bool = False) -> bool:
+    """Crea tabla solo si no existe o si se fuerza recreación"""
+    cursor = conn.cursor()
+    table_name = file_name.replace('.dbf', '').lower()
+    
+    try:
+        # Verificar si tabla ya existe
+        cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
+        if cursor.fetchone():
+            if force_recreate:
+                logger.info(f"Eliminando tabla existente {table_name} para recreación")
+                cursor.execute(f"DROP TABLE `{table_name}`")
+                conn.commit()
+            else:
+                logger.info(f"Tabla {table_name} ya existe - continuando")
+                return True  # Tabla existe, no es un error
+        
+        # Leer registros para determinar estructura
+        all_records = read_dbf(file_name)
+        if not all_records:
+            logger.error(f"No se pudieron leer registros de {file_name}")
+            return False
+        
+        # Generar SQL para crear tabla
+        columns = []
+        for field in all_records[0].keys():
+            col_type = _determine_column_type(field, all_records[0], all_records)
+            columns.append(f"`{field.lower()}` {col_type}")
+        
+        # Campos adicionales
+        columns.append(f"`id_{table_name}` INT AUTO_INCREMENT PRIMARY KEY")
+        columns.append("`control_hash` VARCHAR(32) NOT NULL UNIQUE")
+        columns.append("`sync_date` DATETIME DEFAULT CURRENT_TIMESTAMP")
+        columns.append("`dbf_source` VARCHAR(255) DEFAULT NULL")
+        
+        create_sql = f"CREATE TABLE IF NOT EXISTS `{table_name}` (\n  " + ",\n  ".join(columns) + "\n)"
+        
+        for attempt in range(3):
+            try:
+                cursor.execute(create_sql)
+                conn.commit()
+                logger.info(f"Tabla {table_name} creada exitosamente")
+                return True
+            except mariadb.Error as e:
+                if attempt == 2:
+                    logger.error(f"Error creando tabla {table_name}: {str(e)}")
+                    conn.rollback()
+                    return False
+                time.sleep(1)
+                
+    except Exception as e:
+        logger.error(f"Error inesperado: {str(e)}\n{traceback.format_exc()}")
+        return False
+
+def insert_records(conn: mariadb.connection, table_name: str, records: List[Dict[str, Any]], 
+                 batch_size: int = 100) -> Tuple[int, int, List[str]]:
+    """
+    Inserta o actualiza registros en lotes usando control_hash para evitar duplicados.
+    Maneja tipos de datos, transacciones y errores de manera robusta.
+    
+    Args:
+        conn: Conexión a MariaDB
+        table_name: Nombre de la tabla destino
+        records: Lista de diccionarios con los datos
+        batch_size: Tamaño del lote para operaciones bulk (no implementado aún)
+        
+    Returns:
+        Tuple: (registros insertados, registros actualizados, lista de errores)
+    """
+    if not records:
+        logger.debug("Lista de registros vacía - nada que insertar")
+        return 0, 0, []
+
+    cursor = conn.cursor()
+    errors = []
+    inserted = 0
+    updated = 0
+
+    try:
+        # 1. Validación inicial de la tabla
+        if not _validate_table_exists(cursor, table_name):
+            errors.append(f"La tabla {table_name} no existe")
+            return 0, 0, errors
+
+        # 2. Obtener estructura de la tabla
+        table_structure = _get_table_structure(cursor, table_name)
+        if not table_structure:
+            errors.append(f"No se pudo obtener estructura de la tabla {table_name}")
+            return 0, 0, errors
+
+        # 3. Preparar consultas SQL dinámicas
+        fields = [f for f in records[0].keys() if f.lower() in table_structure]
+        sql_queries = _prepare_sql_queries(table_name, fields)
+        
+        # 4. Procesamiento por lotes (batch)
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i + batch_size]
+            batch_inserted, batch_updated, batch_errors = _process_batch(
+                cursor, sql_queries, table_structure, batch
+            )
+            inserted += batch_inserted
+            updated += batch_updated
+            errors.extend(batch_errors)
+            
+            # Commit parcial para no perder todo el trabajo en caso de error
+            try:
+                conn.commit()
+            except mariadb.Error as e:
+                conn.rollback()
+                errors.append(f"Error en commit del lote: {str(e)}")
+                logger.error(f"Error en commit: {str(e)}")
+
+        logger.info(f"Operación completada: {inserted} nuevos, {updated} actualizados en {table_name}")
+        return inserted, updated, errors
+
+    except Exception as e:
+        conn.rollback()
+        error_msg = f"Error crítico en insert_records: {str(e)}"
+        logger.error(f"{error_msg}\n{traceback.format_exc()}")
+        errors.append(error_msg)
+        return inserted, updated, errors
+
+# Funciones auxiliares (añadir al mismo archivo o como métodos privados)
+def _validate_table_exists(cursor: mariadb.connection.cursor, table_name: str) -> bool:
+    """Verifica si la tabla existe en la base de datos"""
+    try:
+        cursor.execute(f"SHOW TABLES LIKE '{table_name}'")
+        return cursor.fetchone() is not None
+    except mariadb.Error as e:
+        logger.error(f"Error validando tabla {table_name}: {str(e)}")
+        return False
+
+def _get_table_structure(cursor: mariadb.connection.cursor, table_name: str) -> Dict[str, str]:
+    """Obtiene la estructura de columnas de la tabla"""
+    try:
+        cursor.execute(f"DESCRIBE `{table_name}`")
+        return {row[0].lower(): row[1] for row in cursor.fetchall()}
+    except mariadb.Error as e:
+        logger.error(f"Error obteniendo estructura de {table_name}: {str(e)}")
+        return {}
+
+def _prepare_sql_queries(table_name: str, fields: List[str]) -> Dict[str, str]:
+    """Prepara las consultas SQL necesarias"""
+    columns = [f"`{field.lower()}`" for field in fields]
+    columns.append("`control_hash`")
+    
+    placeholders = ["%s"] * len(columns)
+    
+    return {
+        'insert': f"""
+            INSERT INTO `{table_name}` ({', '.join(columns)}) 
+            VALUES ({', '.join(placeholders)})
+        """,
+        'update': f"""
+            UPDATE `{table_name}` 
+            SET {', '.join([f'`{col}`=%s' for col in columns if col != '`control_hash`'])}
+            WHERE control_hash=%s
+        """,
+        'check': f"SELECT 1 FROM `{table_name}` WHERE control_hash = %s LIMIT 1"
+    }
+
+def _process_batch(cursor: mariadb.connection.cursor, 
+                  sql_queries: Dict[str, str], 
+                  table_structure: Dict[str, str],
+                  batch: List[Dict[str, Any]]) -> Tuple[int, int, List[str]]:
+    """Procesa un lote de registros"""
+    inserted = 0
+    updated = 0
+    errors = []
+    
+    for record in batch:
+        try:
+            # 1. Preparar valores asegurando tipos correctos
+            values = []
+            for field in record.keys():
+                field_lower = field.lower()
+                if field_lower in table_structure:
+                    value = _convert_value(record[field], table_structure[field_lower])
+                    values.append(value)
+            
+            # 2. Calcular hash del registro
+            record_hash = calculate_hash(record)
+            
+            # 3. Verificar si existe
+            cursor.execute(sql_queries['check'], (record_hash,))
+            exists = cursor.fetchone() is not None
+            
+            # 4. Insertar o actualizar
+            if exists:
+                update_values = values + [record_hash]
+                cursor.execute(sql_queries['update'], update_values)
+                updated += 1
+            else:
+                insert_values = values + [record_hash]
+                cursor.execute(sql_queries['insert'], insert_values)
+                inserted += 1
+                
+        except mariadb.Error as e:
+            error_msg = f"Error SQL en registro: {str(e)}"
+            errors.append(error_msg)
+            logger.error(f"{error_msg}\nRegistro: {record}")
+            continue
+        except Exception as e:
+            error_msg = f"Error procesando registro: {str(e)}"
+            errors.append(error_msg)
+            logger.error(f"{error_msg}\nRegistro: {record}")
+            continue
+            
+    return inserted, updated, errors
+
+def _convert_value(value: Any, column_type: str) -> Any:
+    """Convierte valores según el tipo de columna en la BD"""
+    if value is None:
+        return None
+        
+    # Manejo especial para tipos de datos
+    if 'int' in column_type.lower():
+        return int(value) if value is not None else 0
+    elif 'decimal' in column_type.lower() or 'float' in column_type.lower():
+        return float(value) if value is not None else 0.0
+    elif 'date' in column_type.lower() or 'time' in column_type.lower():
+        if isinstance(value, (date, datetime)):
+            return value
+        try:
+            return datetime.strptime(str(value), '%Y-%m-%d') if value else None
+        except ValueError:
+            return None
+    return str(value) if value is not None else ''
+
+def backup_table(conn: mariadb.connection, table_name: str) -> bool:
+    """Crea backup de una tabla"""
+    backup_name = f"{table_name}_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute(f"CREATE TABLE IF NOT EXISTS `{backup_name}` LIKE `{table_name}`")
+        cursor.execute(f"INSERT INTO `{backup_name}` SELECT * FROM `{table_name}`")
+        conn.commit()
+        return True
+    except mariadb.Error as e:
+        conn.rollback()
+        logger.error(f"Error creando backup: {str(e)}")
+        return False
