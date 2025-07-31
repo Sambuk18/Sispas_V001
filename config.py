@@ -11,11 +11,12 @@ class Config:
     # Configuración básica
     SECRET_KEY = os.environ.get('SECRET_KEY')
     SERVER_NAME = os.environ.get('SERVER_NAME')
-    PREFERRED_URL_SCHEME = os.environ.get('PREFERRED_URL_SCHEME', 'https')
-    
+    PREFERRED_URL_SCHEME = os.environ.get('PREFERRED_URL_SCHEME', 'https')   
     # Intervalo de escaneo en segundos (60 segundos = 1 minuto)
     SCAN_INTERVAL = int(os.getenv('SCAN_INTERVAL', 3600))
-    
+    # Configurar sesión permanente con tiempo de vida de 60 minutos
+
+   
     # Base de datos
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     SQLALCHEMY_TRACK_MODIFICATIONS = False

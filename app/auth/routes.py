@@ -7,7 +7,9 @@ from itsdangerous.exc import BadSignature, SignatureExpired
 from flask_mail import Message
 from app import db, login_manager, mail
 from app.models import User, UserData
-from app.auth.forms import LoginForm, RegistrationForm
+from app.auth.forms import LoginForm, RegistrationForm, ProfileForm
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
 
@@ -138,43 +140,71 @@ def logout():
     flash('Has cerrado sesión correctamente.', 'success')
     return redirect(url_for('auth.login'))
 
-@auth_bp.route('/profile')
+    
+# Ruta para el perfil del usuario actual
+@auth_bp.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
-    # La ruta profile original, solo para visualizar el perfil.
-    # En este caso, ya no la necesitamos porque el formulario de edición estará en otra ruta.
-    # Podrías eliminarla si el perfil.html se usa solo para editar.
-    # Si quieres una vista de perfil y otra de edición, esta podría ser la vista de solo lectura.
-    # Por ahora, la dejaré como la tenías.
-    return render_template('auth/profile.html', user=current_user)
-
-@auth_bp.route('/profile/edit', methods=['GET', 'POST'])
-@login_required
-def profile_edit():
-    # Asegurarse de que el usuario tiene user_data asociado
-    if not current_user.user_data:
-        # Aquí podrías redirigir a una página para crear los datos iniciales
-        flash('Por favor, completa tus datos de perfil para continuar.', 'warning')
-        return redirect(url_for('main_bp.dashboard')) # O a una ruta de creación de perfil
-
-    if request.method == 'POST':
-        # Procesar la edición
-        current_user.user_data.nombres = request.form.get('nombres')
-        current_user.user_data.apellido = request.form.get('apellido')
-        current_user.user_data.cuil_dni = request.form.get('cuil_dni')
-        current_user.user_data.celular = request.form.get('celular')
-        
+    # Cargar datos existentes o preparar formulario vacío
+    form = ProfileForm(obj=current_user.user_data)
+    
+    if form.validate_on_submit():
         try:
+            if not current_user.user_data:
+                # Crear un nuevo registro UserData con los datos del formulario
+                user_data = UserData(
+                    user_id=current_user.id,
+                    nombres=form.nombres.data,
+                    apellido=form.apellido.data,
+                    cuil_dni=form.cuil_dni.data,
+                    celular=form.celular.data,
+                    nivel_usuario=form.nivel_usuario.data
+                )
+                db.session.add(user_data)
+            else:
+                # Actualizar el registro existente
+                form.populate_obj(current_user.user_data)
+            
             db.session.commit()
-            flash('¡Tu perfil ha sido actualizado con éxito!', 'success')
-            return redirect(url_for('main_bp.dashboard')) # Redirige al dashboard o a una página de éxito
+            flash('Perfil actualizado correctamente', 'success')
+            return redirect(url_for('auth.profile'))
+            
         except Exception as e:
             db.session.rollback()
-            flash('Ocurrió un error al guardar los datos. Por favor, inténtalo de nuevo.', 'danger')
-            current_app.logger.error(f"Error al actualizar perfil: {e}")
+            flash(f'Error al actualizar perfil: {str(e)}', 'danger')
+            # Esto ayuda a debuggear - puedes removerlo en producción
+            app.logger.error(f'Error al guardar perfil: {str(e)}', exc_info=True)
+    
+    # Para el GET, si no hay user_data, mostramos formulario vacío
+    return render_template('auth/profile.html', form=form, user=current_user)
+
+# Ruta para edición por admin (si es necesaria)
+@auth_bp.route('/profile/edit/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+def admin_edit_profile(user_id):
+    if not current_user.is_admin:  # Asegúrate de tener este campo en tu modelo User
+        abort(403)
+    
+    user = User.query.get_or_404(user_id)
+    form = ProfileForm(obj=user.user_data)
+    
+    if form.validate_on_submit():
+        try:
+            if not user.user_data:
+                user_data = UserData(user_id=user.id)
+                db.session.add(user_data)
+            else:
+                user_data = user.user_data
             
-    # Si es GET, simplemente renderizar el formulario con los datos actuales
-    return render_template('auth/profile.html')    
+            form.populate_obj(user_data)
+            db.session.commit()
+            flash('Perfil actualizado correctamente', 'success')
+            return redirect(url_for('auth.admin_edit_profile', user_id=user.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar perfil: {str(e)}', 'danger')
+    
+    return render_template('auth/profile.html', form=form, user=user)   
 
 
 @login_manager.user_loader

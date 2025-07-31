@@ -257,28 +257,18 @@ class Producto(db.Model):
 
 class UserData(db.Model):
     __tablename__ = 'user_data'
-
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
-    apellido = db.Column(db.String(100), nullable=False)
-    nombres = db.Column(db.String(100), nullable=False)
-    cuil_dni = db.Column(db.String(20), unique=True, nullable=False)
-    celular = db.Column(db.String(20), nullable=True)
-    nivel_usuario = db.Column(db.Integer, default=0, nullable=False)
     
-    # Relación de vuelta con la tabla User
-    user = db.relationship('User', back_populates='user_data', uselist=False)
-
-    def __init__(self, user_id, apellido, nombres, cuil_dni, celular=None, nivel_usuario=0):
-        self.user_id = user_id
-        self.apellido = apellido
-        self.nombres = nombres
-        self.cuil_dni = cuil_dni
-        self.celular = celular
-        self.nivel_usuario = nivel_usuario
-        
-    def __repr__(self):
-        return f"<UserData {self.nombres} {self.apellido}>"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  #sdfdsfsd  Añadir autoincrement
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    nombres = db.Column(db.String(50), nullable=False)
+    apellido = db.Column(db.String(50), nullable=False)
+    cuil_dni = db.Column(db.String(15), nullable=False)
+    celular = db.Column(db.String(15))
+    nivel_usuario = db.Column(db.Integer, nullable=False)
+    
+    # Relación
+    user = db.relationship('User', back_populates='user_data')
+    
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)

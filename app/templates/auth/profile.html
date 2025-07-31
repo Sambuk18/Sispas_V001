@@ -1,55 +1,91 @@
 {% extends "base.html" %}
 
-{% block title %}Mi Perfil{% endblock %}
-
 {% block content %}
-<h1>PRUEBA</h1>
-<div class="container mt-5">
+<div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card shadow-lg">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">
-                        <i class="fas fa-user-edit me-2"></i>Editar mi perfil
-                    </h4>
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Editar Perfil</h4>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('auth.profile_edit') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
+                    <form method="POST" action="{{ url_for('auth.profile') }}" novalidate>
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- Campo Nombres -->
                         <div class="mb-3">
-                            <label for="nombres" class="form-label">Nombres</label>
-                            <input type="text" class="form-control" id="nombres" name="nombres" value="{{ current_user.user_data.nombres }}" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="apellido" class="form-label">Apellido</label>
-                            <input type="text" class="form-control" id="apellido" name="apellido" value="{{ current_user.user_data.apellido }}" required>
+                            {{ form.nombres.label(class="form-label") }}
+                            {{ form.nombres(class="form-control" + (" is-invalid" if form.nombres.errors else "")) }}
+                            {% for error in form.nombres.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
                         </div>
                         
+                        <!-- Campo Apellido -->
                         <div class="mb-3">
-                            <label for="cuil_dni" class="form-label">CUIL / DNI</label>
-                            <input type="text" class="form-control" id="cuil_dni" name="cuil_dni" value="{{ current_user.user_data.cuil_dni }}" required>
+                            {{ form.apellido.label(class="form-label") }}
+                            {{ form.apellido(class="form-control" + (" is-invalid" if form.apellido.errors else "")) }}
+                            {% for error in form.apellido.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
                         </div>
-
+                        
+                        <!-- Campo Celular -->
                         <div class="mb-3">
-                            <label for="celular" class="form-label">Celular</label>
-                            <input type="text" class="form-control" id="celular" name="celular" value="{{ current_user.user_data.celular }}">
-                            <div class="form-text">Opcional.</div>
+                            {{ form.celular.label(class="form-label") }}
+                            {{ form.celular(class="form-control" + (" is-invalid" if form.celular.errors else "")) }}
+                            {% for error in form.celular.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
                         </div>
-
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-save me-2"></i>Guardar cambios
-                            </button>
-                            <a href="{{ url_for('main_bp.dashboard') }}" class="btn btn-secondary btn-lg">
-                                <i class="fas fa-arrow-left me-2"></i>Cancelar
-                            </a>
+                        
+                        <!-- Campo Nivel de Usuario -->
+                        <div class="mb-3">
+                            {{ form.nivel_usuario.label(class="form-label") }}
+                            {{ form.nivel_usuario(class="form-select" + (" is-invalid" if form.nivel_usuario.errors else "")) }}
+                            {% for error in form.nivel_usuario.errors %}
+                                <div class="invalid-feedback">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+                            <small class="text-muted">
+                                Niveles: 9-Visitante, 1-Asegurado, 2-Productor
+                            </small>
+                        </div>
+                        
+                        <!-- Botón de Submit -->
+                        <div class="d-grid gap-2">
+                            {{ form.submit(class="btn btn-primary") }}
                         </div>
                     </form>
                 </div>
             </div>
         </div>
     </div>
+</div>
+
+<div class="card-footer bg-light">
+    <h5>Información Actual</h5>
+    <ul class="list-unstyled">
+        <li><strong>Nombre Completo:</strong> {{ user.user_data.nombres if user.user_data else 'No registrado' }} {{ user.user_data.apellido if user.user_data else '' }}</li>
+        <li><strong>Celular:</strong> {{ user.user_data.celular if user.user_data else 'No registrado' }}</li>
+        <li><strong>Nivel:</strong> 
+            {% if user.user_data %}
+                {{ user.user_data.nivel_usuario }} 
+                ({% if user.user_data.nivel_usuario == 9 %}Visitante
+                {% elif user.user_data.nivel_usuario == 1 %}Asegurado
+                {% elif user.user_data.nivel_usuario == 2 %}Productor
+                {% endif %})
+            {% else %}
+                No definido
+            {% endif %}
+        </li>
+    </ul>
 </div>
 {% endblock %}

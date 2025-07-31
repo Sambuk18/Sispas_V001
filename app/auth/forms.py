@@ -1,8 +1,54 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectField 
 from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
-from app.models import User
+from app.models import User, UserData
 from flask import current_app
+
+class ProfileForm(FlaskForm):
+    nombres = StringField(
+        'Nombre', 
+        validators=[DataRequired(), Length(max=50)],
+        default='Nombre',  # Valor por defecto para nombres
+        render_kw={"placeholder": "Ingrese sus nombres"}
+    )
+    
+    apellido = StringField(
+        'Apellido', 
+        validators=[DataRequired(), Length(max=50)],
+        default='Apellido',  # Valor por defecto para apellido
+        render_kw={"placeholder": "Ingrese su apellido"}
+    )
+    cuil_dni = StringField(
+        'CUIL/DNI', 
+        validators=[DataRequired(), Length(max=20)],
+        default='20-12345678-0',  # Valor por defecto para CUIL/DNI
+        render_kw={"placeholder": "Ej: 20-12345678-0"}
+    )
+    celular = StringField(
+        'Nº de Celular', 
+        validators=[DataRequired(), Length(max=15)],
+        default='3644555555',  # Valor por defecto para celular
+        render_kw={"placeholder": "Ej: 3511234567"}
+    )
+    
+    nivel_usuario = SelectField(
+        'Nivel de Usuario',
+        choices=[
+            (9, 'Visitante'), 
+            (1, 'Asegurado'), 
+            (2, 'Productor')
+        ],
+        coerce=int,
+        validators=[DataRequired()],
+        default=9,  # Valor por defecto ya establecido
+        render_kw={"class": "form-select"}  # Ejemplo de atributo adicional
+    )
+    
+    submit = SubmitField(
+        'Actualizar Perfil',
+        render_kw={"class": "btn btn-primary"}  # Clases de Bootstrap
+    )
+
 
 class LoginForm(FlaskForm):
     email = StringField('Email', 
