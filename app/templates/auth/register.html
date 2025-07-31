@@ -1,46 +1,54 @@
 {% extends "base.html" %}
+{% block title %}Registro{% endblock %}
 
 {% block content %}
-<div class="login-container">
-    <div class="login-header">
-        <h1>SegurosApp</h1>
-        <p>Crea tu cuenta para comenzar</p>
-    </div>
-    
-    <div class="login-box">
-        <h2>Registro</h2>
-        
-        <form method="POST" class="login-form">
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h2 class="mb-4">Registrarse</h2>
+        <form method="POST" action="{{ url_for('auth.register') }}">
             {{ form.hidden_tag() }}
             
-            <div class="form-group">
-                {{ form.username.label(class="form-label") }}
-                {{ form.username(class="form-control", placeholder="Ej: juan_perez") }}
-            </div>
-            
-            <div class="form-group">
+            <div class="mb-3">
                 {{ form.email.label(class="form-label") }}
-                {{ form.email(class="form-control", placeholder="Ej: juan@example.com") }}
+                {{ form.email(class="form-control") }}
+                {% if form.email.errors %}
+                    <div class="text-danger">
+                        {% for error in form.email.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
-            
-            <div class="form-group">
+
+            <div class="mb-3">
                 {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control", placeholder="Mínimo 8 caracteres") }}
+                {{ form.password(class="form-control") }}
+                {% if form.password.errors %}
+                    <div class="text-danger">
+                        {% for error in form.password.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
-            
-            <div class="form-group">
+
+            <div class="mb-3">
                 {{ form.confirm_password.label(class="form-label") }}
-                {{ form.confirm_password(class="form-control", placeholder="Repite tu contraseña") }}
+                {{ form.confirm_password(class="form-control") }}
+                {% if form.confirm_password.errors %}
+                    <div class="text-danger">
+                        {% for error in form.confirm_password.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
-            
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Registrarse</button>
-            </div>
+
+            <button type="submit" class="btn btn-primary">Registrarse</button>
+            <p class="mt-3">
+                ¿Ya tienes cuenta? <a href="{{ url_for('auth.login') }}">Inicia sesión aquí</a>.
+            </p>
         </form>
-        
-        <div class="quick-links">
-            <p>¿Ya tienes cuenta? <a href="{{ url_for('auth.login') }}">Inicia sesión</a></p>
-        </div>
     </div>
 </div>
 {% endblock %}

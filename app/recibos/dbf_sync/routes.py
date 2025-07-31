@@ -10,3 +10,4 @@ def sincronizar_datos():
     except Exception as e:
         flash(f"Error durante la sincronización: {str(e)}", "danger")
     return redirect(url_for('recibos.list_recibos'))
+

@@ -1,8 +1,8 @@
 import logging
-from datetime import date, datetime
+#from datetime import date, datetime
 from typing import List, Dict, Any, Tuple
-from sqlalchemy import text
-from app import db
+#from sqlalchemy import text
+##from app import db
 from .dbf_utils import read_dbf, calculate_hash
 
 # Configuración de logging

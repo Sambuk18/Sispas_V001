@@ -1,10 +1,12 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import URLSafeTimedSerializer as Serializer
 from flask_login import UserMixin
 from app import db  # Solo importamos db aquí
 from app import login_manager  # Importamos login_manager desde __init__.py
-
+from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 
 ##### hay  que eliminar la tabla cajas, cuentas,
 
@@ -119,7 +121,7 @@ class Scliente(db.Model):
         return f'<Scliente {self.nro_cli} - {self.ape_cli}, {self.nom_cli}>'
 
 
-class CodigoPostal(db.Model):
+class Cod_post(db.Model):
     __tablename__ = 'cod_post'
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -138,8 +140,7 @@ class CodigoPostal(db.Model):
 
 
 class Con_gast(db.Model):
-    __tablename__ = 'con_gast'
-    
+    __tablename__ = 'con_gast'    
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     gas_numero = db.Column(db.Text)    # Número de gasto
     gas_numnom = db.Column(db.Text)   # Número/nombre asociado
@@ -255,38 +256,43 @@ class Producto(db.Model):
         return f'<Producto {self.num} - {self.apn}>'
 
 
+
 class User(db.Model, UserMixin):
-    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(512), nullable=False)
+    is_verified = db.Column(db.Boolean, default=False)  # Nueva columna
+    token = db.Column(db.String(200), nullable=True)   # Token de verificación
 
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    username = db.Column(db.String(100), nullable=False)  # Cambiado de 'name'
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), default='user')
-    email_verified = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    def __init__(self, email, password, is_verified=False):
+        self.email = email
+        self.password = password
+        self.is_verified = is_verified        
+        
+    def generate_verification_token(self, expires_sec=3600):
+        s = Serializer(current_app.config['SECRET_KEY'])
+        return s.dumps({'user_id': self.id})
+    
+    @staticmethod
+    def verify_token(token):
+        s = Serializer(current_app.config['SECRET_KEY'])
+        try:
+            user_id = s.loads(token, max_age=expires_sec)['user_id']
+            return User.query.get(user_id)
+        except:
+            return None
 
-    @property
-    def password(self):
-        raise AttributeError('password is not a readable attribute')
 
-    @password.setter
-    def password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def verify_password(self, password):
-        return check_password_hash(self.password_hash, password)
-
-    def check_password(self, password):  # Este alias evita errores en el login
-        return self.verify_password(password)
-
-    def get_id(self):
-        return str(self.id)
-
-    def __repr__(self):
-        return f'<User {self.username} ({self.email})>'
-
+class DBFUpdateLog(db.Model):
+    """Modelo para registrar las actualizaciones en la base de datos"""
+    __tablename__ = 'dbf_update_logs'
+    
+    id = Column(Integer, primary_key=True)
+    filename = Column(String(255))
+    operation = Column(String(50))  # 'copied', 'skipped', 'error'
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    details = Column(String(500))
+    
 
 # Cargador de usuario requerido por Flask-Login
 @login_manager.user_loader
@@ -307,7 +313,7 @@ class Compania(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
     
-    productos = db.relationship('Producto', backref='compania', lazy='dynamic')
+    productos = db.relationship('Productos', backref='compania', lazy='dynamic')
     
     def __repr__(self):
         return f'<Compania {self.nombre}>'
@@ -320,12 +326,12 @@ class Categoria(db.Model):
     descripcion = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
     
-    productos = db.relationship('Producto', backref='categoria', lazy='dynamic')
+    productos = db.relationship('Productos', backref='categoria', lazy='dynamic')
     
     def __repr__(self):
         return f'<Categoria {self.nombre}>'
 
-class Producto(db.Model):
+class Productos(db.Model):
     __tablename__ = 'productos'
     
     id = db.Column(db.Integer, primary_key=True)
@@ -339,10 +345,10 @@ class Producto(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    polizas = db.relationship('Poliza', backref='producto', lazy='dynamic')
+    polizas = db.relationship('Poliza', backref='productos', lazy='dynamic')
     
     def __repr__(self):
-        return f'<Producto {self.nombre}>'
+        return f'<Productos {self.nombre}>'
 
 class Clientes(db.Model):
     __tablename__ = 'clientes'

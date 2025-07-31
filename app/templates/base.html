@@ -13,7 +13,8 @@
 </head>
 <body>
     <div class="d-flex" id="wrapper">
-        <!-- Sidebar -->
+        <!-- Sidebar (solo visible cuando está logueado) -->
+        {% if current_user.is_authenticated %}
         <div class="bg-dark text-white" id="sidebar-wrapper">
             <div class="sidebar-heading text-center py-4">
                 <h2 class="mb-0"><i class="fas fa-file-invoice me-2"></i>SegurosApp</h2>
@@ -86,16 +87,22 @@
                 {% endif %}
             </div>
         </div>
+        {% endif %}
 
         <div id="page-content-wrapper" class="w-100">
             <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
                 <div class="container-fluid">
+                    {% if current_user.is_authenticated %}
                     <button class="btn btn-primary" id="menu-toggle"><i class="fas fa-bars"></i></button>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
+                    {% endif %}
+                    
+                    <div class="navbar-brand mx-auto">
+                        <i class="fas fa-file-invoice"></i> Sistema de Recibos
+                    </div>
+                    
                     <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
                         <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
+                            {% if current_user.is_authenticated %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                                     <i class="fas fa-user-circle me-1"></i>{{ current_user.username }}
@@ -106,6 +113,18 @@
                                     <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a></li>
                                 </ul>
                             </li>
+                            {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('auth.login') }}">
+                                    <i class="fas fa-sign-in-alt me-1"></i>Iniciar Sesión
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{{ url_for('auth.register') }}">
+                                    <i class="fas fa-user-plus me-1"></i>Registrarse
+                                </a>
+                            </li>
+                            {% endif %}
                         </ul>
                     </div>
                 </div>
@@ -136,11 +155,13 @@
     {% block extra_js %}{% endblock %}
     {% block scripts %}{% endblock %}
 
+    {% if current_user.is_authenticated %}
     <script>
         document.getElementById("menu-toggle").addEventListener("click", function(e) {
             e.preventDefault();
             document.getElementById("wrapper").classList.toggle("toggled");
         });
     </script>
+    {% endif %}
 </body>
 </html>
