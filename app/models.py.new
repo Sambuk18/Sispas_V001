@@ -13,7 +13,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 class Sfac_tur(db.Model):
     __tablename__ = 'sfac_tur'
     
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_sfactur = db.Column(db.Integer, primary_key=True, autoincrement=True)
     tip_fac = db.Column(db.Text)         # Tipo de factura
     fec_fac = db.Column(db.Text)         # Fecha factura
     nro_fac = db.Column(db.Text)         # Número factura
@@ -48,7 +48,7 @@ class Scliente(db.Model):
     __tablename__ = 'scliente'
    
     # Campos exactamente como en la tabla
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_scliente = db.Column(db.Integer, primary_key=True, autoincrement=True)
     nro_cli = db.Column(db.Text)
     num_soc = db.Column(db.Text)
     act_ivo = db.Column(db.Text)
@@ -124,7 +124,7 @@ class Scliente(db.Model):
 class Cod_post(db.Model):
     __tablename__ = 'cod_post'
     
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_codpost = db.Column(db.Integer, primary_key=True, autoincrement=True)
     n_posta = db.Column(db.Text)  # Nombre o código de la postal
     nro_pos = db.Column(db.Text)  # Número postal (código)
     nom_loc = db.Column(db.Text)  # Nombre de la localidad
@@ -141,7 +141,7 @@ class Cod_post(db.Model):
 
 class Con_gast(db.Model):
     __tablename__ = 'con_gast'    
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_congast = db.Column(db.Integer, primary_key=True, autoincrement=True)
     gas_numero = db.Column(db.Text)    # Número de gasto
     gas_numnom = db.Column(db.Text)   # Número/nombre asociado
     gas_codigo = db.Column(db.Text)   # Código del gasto
@@ -169,7 +169,7 @@ class Con_gast(db.Model):
 class CuentaCorriente(db.Model):
     __tablename__ = 'ctacte'
     
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_ctacte = db.Column(db.Integer, primary_key=True, autoincrement=True)
     asegur = db.Column(db.Text)      # Aseguradora/Compañía
     asedet = db.Column(db.Text)      # Detalle aseguradora
     pol = db.Column(db.Text)         # Póliza relacionada
@@ -197,7 +197,7 @@ class CuentaCorriente(db.Model):
 class Recibos(db.Model):
     __tablename__ = 'recibos'  # Asumo que el nombre de la tabla es 'recibos'
     
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_recibos = db.Column(db.Integer, primary_key=True, autoincrement=True)
     pronro = db.Column(db.Text)
     numero = db.Column(db.Text)
     num_cli = db.Column(db.Text)
@@ -235,7 +235,7 @@ class Producto(db.Model):
     __tablename__ = 'producto'
     
     # Campos exactamente como en la estructura de la tabla
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_producto = db.Column(db.Integer, primary_key=True, autoincrement=True)
     num = db.Column(db.Text)          # Número de producto
     apn = db.Column(db.Text)          # Apellido y nombre
     dir = db.Column(db.Text)          # Dirección
@@ -258,7 +258,7 @@ class Producto(db.Model):
 class UserData(db.Model):
     __tablename__ = 'user_data'
 
-    id = db.Column(db.Integer, primary_key=True)
+    id_userdata = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True, nullable=False)
     apellido = db.Column(db.String(100), nullable=False)
     nombres = db.Column(db.String(100), nullable=False)
@@ -280,14 +280,14 @@ class UserData(db.Model):
     def __repr__(self):
         return f"<UserData {self.nombres} {self.apellido}>"
 
+
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(512), nullable=False)
     is_verified = db.Column(db.Boolean, default=False)  # Nueva columna
     token = db.Column(db.String(200), nullable=True)   # Token de verificación
-
-# Nueva relación con la tabla UserData
+    # Nueva relación con la tabla UserData
     user_data = db.relationship('UserData', back_populates='user', uselist=False)
 
     def __init__(self, email, password, is_verified=False):
@@ -307,7 +307,10 @@ class User(db.Model, UserMixin):
             return User.query.get(user_id)
         except:
             return None
-
+    # Cargador de usuario requerido por Flask-Login
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
 
 class DBFUpdateLog(db.Model):
     """Modelo para registrar las actualizaciones en la base de datos"""
@@ -318,17 +321,11 @@ class DBFUpdateLog(db.Model):
     operation = Column(String(50))  # 'copied', 'skipped', 'error'
     timestamp = Column(DateTime, default=datetime.utcnow)
     details = Column(String(500))
-    
-
-# Cargador de usuario requerido por Flask-Login
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 class Compania(db.Model):
     __tablename__ = 'companias'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_companias = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     direccion = db.Column(db.String(200))
     telefono = db.Column(db.String(20))
@@ -347,7 +344,7 @@ class Compania(db.Model):
 class Categoria(db.Model):
     __tablename__ = 'categorias'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_categorias = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     descripcion = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
@@ -360,7 +357,7 @@ class Categoria(db.Model):
 class Productos(db.Model):
     __tablename__ = 'productos'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_productos = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     descripcion = db.Column(db.Text)
     ###categoria_producto = db.Column(db.String(100))  # Categoría del producto
@@ -379,7 +376,7 @@ class Productos(db.Model):
 class Clientes(db.Model):
     __tablename__ = 'clientes'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_clientes = db.Column(db.Integer, primary_key=True)
     tipo_documento = db.Column(db.String(10))  # DNI, CUIT, etc.
     documento = db.Column(db.String(20), nullable=False, unique=True)
     nombre = db.Column(db.String(100), nullable=False)
@@ -401,7 +398,7 @@ class Clientes(db.Model):
 class Asegurado(db.Model):
     __tablename__ = 'asegurados'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_asegurados = db.Column(db.Integer, primary_key=True)
     tipo_documento = db.Column(db.String(10))
     documento = db.Column(db.String(20), nullable=False)
     nombre = db.Column(db.String(100), nullable=False)
@@ -421,7 +418,7 @@ class Asegurado(db.Model):
 class Vendedor(db.Model):
     __tablename__ = 'vendedores'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_vendedores = db.Column(db.Integer, primary_key=True)
     codigo = db.Column(db.String(20), unique=True)
     tipo_documento = db.Column(db.String(10))
     documento = db.Column(db.String(20), nullable=False)
@@ -442,7 +439,7 @@ class Vendedor(db.Model):
 class Poliza(db.Model):
     __tablename__ = 'polizas'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_polizas = db.Column(db.Integer, primary_key=True)
     vehiculo_id = db.Column(db.Integer, db.ForeignKey('vehiculos.id'))
     numero = db.Column(db.String(50), unique=True, nullable=False)
     producto_id = db.Column(db.Integer, db.ForeignKey('productos.id'))
@@ -465,7 +462,7 @@ class Poliza(db.Model):
 class Recibo(db.Model):
     __tablename__ = 'recibosdb'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_recibosdb = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.String(50), unique=True, nullable=False)
     poliza_id = db.Column(db.Integer, db.ForeignKey('polizas.id'))
     fecha_emision = db.Column(db.Date, nullable=False)
@@ -508,7 +505,7 @@ class Recibo(db.Model):
 class Pago(db.Model):
     __tablename__ = 'pagos'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_pagos = db.Column(db.Integer, primary_key=True)
     recibo_id = db.Column(db.Integer, db.ForeignKey('recibosdb.id'))
     fecha = db.Column(db.Date, nullable=False)
     monto = db.Column(db.Float, nullable=False)
@@ -523,7 +520,7 @@ class Pago(db.Model):
 class Taller(db.Model):
     __tablename__ = 'taller'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_taller = db.Column(db.Integer, primary_key=True)
     orden_numero = db.Column(db.String(50), unique=True, nullable=False)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'))
     vehiculo_id = db.Column(db.Integer, db.ForeignKey('vehiculos.id'))
@@ -543,7 +540,7 @@ class Taller(db.Model):
 class TallerItem(db.Model):
     __tablename__ = 'taller_items'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_talleritems = db.Column(db.Integer, primary_key=True)
     taller_id = db.Column(db.Integer, db.ForeignKey('taller.id'))
     tipo = db.Column(db.String(50), nullable=False)  # mano_obra, repuesto, etc.
     descripcion = db.Column(db.Text, nullable=False)
@@ -560,7 +557,7 @@ class TallerItem(db.Model):
 class Mecanico(db.Model):
     __tablename__ = 'mecanicos'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_mecanicos = db.Column(db.Integer, primary_key=True)
     codigo = db.Column(db.String(20), unique=True)
     nombre = db.Column(db.String(100), nullable=False)
     apellido = db.Column(db.String(100))
@@ -579,7 +576,7 @@ class Mecanico(db.Model):
 class Proveedor(db.Model):
     __tablename__ = 'proveedores'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_proveedores = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     direccion = db.Column(db.String(200))
     telefono = db.Column(db.String(20))
@@ -598,7 +595,7 @@ class Proveedor(db.Model):
 class Vehiculo(db.Model):
     __tablename__ = 'vehiculos'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_vehiculos = db.Column(db.Integer, primary_key=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'))
     marca = db.Column(db.String(50), nullable=False)
     modelo = db.Column(db.String(50), nullable=False)
@@ -621,7 +618,7 @@ class Vehiculo(db.Model):
 class Gasto(db.Model):
     __tablename__ = 'gastos'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_gastos = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(50), nullable=False)  # alquiler, servicios, etc.
     proveedor_id = db.Column(db.Integer, db.ForeignKey('proveedores.id'))
     fecha = db.Column(db.Date, nullable=False)
@@ -638,7 +635,7 @@ class Gasto(db.Model):
 class Liquidacion(db.Model):
     __tablename__ = 'liquidaciones'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_liquidaciones = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.String(50), unique=True, nullable=False)
     tipo = db.Column(db.String(50), nullable=False)  # vendedor, compania, taller
     referencia_id = db.Column(db.Integer)  # ID del vendedor, compañía, etc.
@@ -658,7 +655,7 @@ class Liquidacion(db.Model):
 class LiquidacionPago(db.Model):
     __tablename__ = 'liquidacion_pagos'
     
-    id = db.Column(db.Integer, primary_key=True)
+    id_liquidacionespagos = db.Column(db.Integer, primary_key=True)
     liquidacion_id = db.Column(db.Integer, db.ForeignKey('liquidaciones.id'))
     fecha = db.Column(db.Date, nullable=False)
     monto = db.Column(db.Float, nullable=False)

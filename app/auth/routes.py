@@ -6,7 +6,7 @@ from itsdangerous import URLSafeTimedSerializer
 from itsdangerous.exc import BadSignature, SignatureExpired
 from flask_mail import Message
 from app import db, login_manager, mail
-from app.models import User
+from app.models import User, UserData
 from app.auth.forms import LoginForm, RegistrationForm
 
 auth_bp = Blueprint('auth', __name__, template_folder='templates')
@@ -141,8 +141,46 @@ def logout():
 @auth_bp.route('/profile')
 @login_required
 def profile():
+    # La ruta profile original, solo para visualizar el perfil.
+    # En este caso, ya no la necesitamos porque el formulario de edición estará en otra ruta.
+    # Podrías eliminarla si el perfil.html se usa solo para editar.
+    # Si quieres una vista de perfil y otra de edición, esta podría ser la vista de solo lectura.
+    # Por ahora, la dejaré como la tenías.
     return render_template('auth/profile.html', user=current_user)
+
+@auth_bp.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def profile_edit():
+    # Asegurarse de que el usuario tiene user_data asociado
+    if not current_user.user_data:
+        # Aquí podrías redirigir a una página para crear los datos iniciales
+        flash('Por favor, completa tus datos de perfil para continuar.', 'warning')
+        return redirect(url_for('main_bp.dashboard')) # O a una ruta de creación de perfil
+
+    if request.method == 'POST':
+        # Procesar la edición
+        current_user.user_data.nombres = request.form.get('nombres')
+        current_user.user_data.apellido = request.form.get('apellido')
+        current_user.user_data.cuil_dni = request.form.get('cuil_dni')
+        current_user.user_data.celular = request.form.get('celular')
+        
+        try:
+            db.session.commit()
+            flash('¡Tu perfil ha sido actualizado con éxito!', 'success')
+            return redirect(url_for('main_bp.dashboard')) # Redirige al dashboard o a una página de éxito
+        except Exception as e:
+            db.session.rollback()
+            flash('Ocurrió un error al guardar los datos. Por favor, inténtalo de nuevo.', 'danger')
+            current_app.logger.error(f"Error al actualizar perfil: {e}")
+            
+    # Si es GET, simplemente renderizar el formulario con los datos actuales
+    return render_template('auth/profile.html')    
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+# auth/routes.py
+# Asegúrate de que las importaciones de arriba son correctas
+
