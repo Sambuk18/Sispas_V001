@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function logout() {
-        fetch('/logout', {method: 'POST'})
-            .then(() => window.location.href = '/login?timeout=1');
+        fetch('/logoutauto', {method: 'POST'})
+            .then(() => window.location.href = '/auth/login?timeout=1');
     }
     
     // Eventos que resetearán el temporizador

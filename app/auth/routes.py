@@ -112,6 +112,11 @@ def verify_email(token):
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    timeout = request.args.get('timeout')
+    if timeout:
+        flash("Sesión expirada por inactividad", "warning")
+        return render_template('auth/login.html')
+        
     if current_user.is_authenticated:
         return redirect(url_for('main_bp.dashboard'))
 
@@ -139,6 +144,14 @@ def logout():
     logout_user()
     flash('Has cerrado sesión correctamente.', 'success')
     return redirect(url_for('auth.login'))
+
+@auth_bp.route('/logoutauto')
+@login_required
+def logoutauto():
+    logout_user()
+    flash('Has cerrado sesión correctamente.', 'success')
+    return '', 204
+    
 
     
 # Ruta para el perfil del usuario actual

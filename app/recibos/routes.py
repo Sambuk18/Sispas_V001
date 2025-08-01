@@ -14,6 +14,7 @@ from flask import current_app
 from sqlalchemy import text, inspect
 from datetime import datetime
 from pathlib import Path
+from flask_login import login_required, current_user
 import logging
 from typing import List, Dict, Any, Tuple
 import threading
@@ -53,6 +54,7 @@ bp = Blueprint('recibos', __name__, template_folder='templates')
 
 
 @bp.route('/')
+@login_required
 def status():
     """Página de estado con datos protegidos"""
     status_data = {
@@ -70,12 +72,14 @@ def status():
     return render_template('status.html', status=status_data)
 
 @bp.route('/shutdown')
+@login_required
 def shutdown():
     """Endpoint para apagar el monitor de forma segura"""
     sync_status['active'] = False
     return "Monitor deteniéndose...", 200
 
 @bp.route('/sincronizar', methods=['POST'])
+@login_required
 def sincronizar_datos():
     try:
         resultados = sync_dbf_to_mariadb()
@@ -89,6 +93,7 @@ def sincronizar_datos():
     return redirect(url_for('recibos.list_recibos'))
 
 @bp.route('/recibos', methods=['GET', 'POST'])
+@login_required
 def list_recibos():
     recibos = []
     if request.method == 'POST':
@@ -144,6 +149,7 @@ def list_recibos():
 # ... (mantener todas las funciones de generación de PDFs aquí)
 
 @bp.route('/enviar_pdf', methods=['POST'])
+@login_required
 def enviar_pdf():
     return "Función de envío por correo no implementada aún", 501
 

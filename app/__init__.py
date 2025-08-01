@@ -1,7 +1,7 @@
-from flask import Flask, session
+from flask import Flask, session, request, redirect, url_for, flash
 from datetime import timedelta
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
+from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
 from flask_mail import Mail
 from .middleware import setup_session_timeout
@@ -68,5 +68,14 @@ def create_app():
     app.register_blueprint(taller_bp, url_prefix='/taller')
     app.register_blueprint(vendedores_bp, url_prefix='/vendedores')
         
+    
+    @app.before_request
+    def check_auth():
+        # Lista de rutas públicas (sin autenticación)
+        public_routes = ['auth.login', 'auth.register', 'static']
+        
+        if request.endpoint not in public_routes and not current_user.is_authenticated:
+            flash("Sesión expirada o no autenticado", "warning")
+            return redirect(url_for('auth.login'))  
     
     return app
