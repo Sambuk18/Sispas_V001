@@ -13,3 +13,10 @@ def index():
 @main_bp.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
+    
+
+@main_bp.route('/keepalive', methods=['POST'])
+def keepalive():
+    # Actualiza la última actividad para evitar el logout
+    session['last_activity'] = time.time()
+    return {'status': 'success'}, 200

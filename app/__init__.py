@@ -1,9 +1,10 @@
-from flask import Flask
+from flask import Flask, session
+from datetime import timedelta
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
 from flask_mail import Mail
-
+from .middleware import setup_session_timeout
 
 mail = Mail()
 
@@ -16,12 +17,15 @@ migrate = Migrate()
 def create_app():
     app = Flask(__name__)
     app.config.from_object('config.Config')
-
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)  # Ajusta el tiempo de sesión permanente
+    app.config['SESSION_REFRESH_EACH_REQUEST'] = True
     # Inicializar extensiones con la app
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
     mail.init_app(app)  # <-- Añade esta línea
+    
+    setup_session_timeout(app)
 
     # Configuración de LoginManager
     login_manager.login_view = 'auth_bp.login'

@@ -135,3 +135,15 @@
         padding: 20px;
     }
 }
+
+/* Para ocultar completamente el botón */
+#menu-toggle {
+    display: none !important;
+}
+
+/* O si prefieres mantener el espacio pero invisible */
+/*
+#menu-toggle {
+    visibility: hidden;
+}
+*/

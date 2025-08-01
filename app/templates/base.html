@@ -159,7 +159,8 @@
             e.preventDefault();
             document.getElementById("wrapper").classList.toggle("toggled");
         });
-    </script>
+    </script>    
     {% endif %}
+    <script src="{{ url_for('static', filename='js/session_timeout.js') }}"></script>
 </body>
 </html>
