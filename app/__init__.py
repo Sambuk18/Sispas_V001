@@ -3,6 +3,7 @@ from datetime import timedelta
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
+from sqlalchemy.orm import relationship
 from flask_mail import Mail
 from .middleware import setup_session_timeout
 
@@ -72,7 +73,7 @@ def create_app():
     @app.before_request
     def check_auth():
         # Lista de rutas públicas (sin autenticación)
-        public_routes = ['auth.login', 'auth.register', 'static']
+        public_routes = ['auth.login', 'auth.register','auth.verify_email', 'static']
         
         if request.endpoint not in public_routes and not current_user.is_authenticated:
             flash("Sesión expirada o no autenticado", "warning")

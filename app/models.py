@@ -7,8 +7,8 @@ from app import login_manager  # Importamos login_manager desde __init__.py
 from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
-
-##### hay  que eliminar la tabla cajas, cuentas,
+from flask_migrate import Migrate
+from sqlalchemy.orm import relationship
 
 class Sfac_tur(db.Model):
     __tablename__ = 'sfac_tur'
@@ -269,6 +269,20 @@ class UserData(db.Model):
     # Relación
     user = db.relationship('User', back_populates='user_data')
     
+class UserSession(db.Model):
+    __tablename__ = 'user_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # Relación con User
+    login_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    logout_time = db.Column(db.DateTime)
+    duration_seconds = db.Column(db.Integer)  # Duración en segundos
+    
+    # Relación (opcional, para acceder desde User)
+    #user = db.relationship('User', backref='sessions')
+
+    def __repr__(self):
+        return f'<UserSession {self.id} - User {self.user_id}>'
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -277,8 +291,9 @@ class User(db.Model, UserMixin):
     is_verified = db.Column(db.Boolean, default=False)  # Nueva columna
     token = db.Column(db.String(200), nullable=True)   # Token de verificación
 
-# Nueva relación con la tabla UserData
+    # Nueva relación con la tabla UserData
     user_data = db.relationship('UserData', back_populates='user', uselist=False)
+    sessions = db.relationship('UserSession', backref='user', lazy=True)
 
     def __init__(self, email, password, is_verified=False):
         self.email = email
@@ -298,6 +313,11 @@ class User(db.Model, UserMixin):
         except:
             return None
 
+# Cargador de usuario requerido por Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
 
 class DBFUpdateLog(db.Model):
     """Modelo para registrar las actualizaciones en la base de datos"""
@@ -308,12 +328,8 @@ class DBFUpdateLog(db.Model):
     operation = Column(String(50))  # 'copied', 'skipped', 'error'
     timestamp = Column(DateTime, default=datetime.utcnow)
     details = Column(String(500))
-    
+   
 
-# Cargador de usuario requerido por Flask-Login
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
 
 class Compania(db.Model):
     __tablename__ = 'companias'

@@ -10,7 +10,7 @@ def setup_session_timeout(app):
         
         if 'last_activity' in session:
             elapsed = time.time() - session['last_activity']
-            if elapsed > 590:  # casi 10 minutos en segundos
+            if elapsed > 3600:  # 1 hora en segundos
                 session.clear()
                 flash('Tu sesión ha expirado por inactividad', 'warning')
                 return redirect(url_for('auth.login'))

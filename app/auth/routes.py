@@ -1,12 +1,12 @@
 from datetime import datetime
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, session
 from flask_login import login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer
 from itsdangerous.exc import BadSignature, SignatureExpired
 from flask_mail import Message
 from app import db, login_manager, mail
-from app.models import User, UserData
+from app.models import User, UserData, UserSession
 from app.auth.forms import LoginForm, RegistrationForm, ProfileForm
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -134,6 +134,11 @@ def login():
 
         login_user(user, remember=form.remember.data)
         next_page = request.args.get('next')
+        session_record = UserSession(user_id=current_user.id)
+        db.session.add(session_record)
+        db.session.commit()
+        session['current_session_id'] = session_record.id  # Guarda el ID en la sesión de Flask
+
         return redirect(next_page or url_for('main_bp.dashboard'))
 
     return render_template('auth/login.html', form=form)
@@ -142,6 +147,13 @@ def login():
 @login_required
 def logout():
     logout_user()
+    if 'current_session_id' in session:
+        session_record = UserSession.query.get(session['current_session_id'])
+        if session_record:
+            session_record.logout_time = datetime.utcnow()
+            session_record.duration_seconds = (session_record.logout_time - session_record.login_time).total_seconds()
+            db.session.commit()
+
     flash('Has cerrado sesión correctamente.', 'success')
     return redirect(url_for('auth.login'))
 
@@ -149,6 +161,12 @@ def logout():
 @login_required
 def logoutauto():
     logout_user()
+    if 'current_session_id' in session:
+        session_record = UserSession.query.get(session['current_session_id'])
+        if session_record:
+            session_record.logout_time = datetime.utcnow()
+            session_record.duration_seconds = (session_record.logout_time - session_record.login_time).total_seconds()
+            db.session.commit()
     flash('Has cerrado sesión correctamente.', 'success')
     return '', 204
     

@@ -1,9 +1,9 @@
 document.addEventListener('DOMContentLoaded', function() {
     let timeoutWarning;
     let timeoutLogout;
-    const warningTime = 1 * 60 * 1000; // 1 minutos de advertencia
-    const logoutTime = 10 * 60 * 1000; // 10 minutos para logout
-    
+    const warningTime = 5 * 60 * 1000; // 5 minutos de advertencia
+    const logoutTime = 60 * 60 * 1000; // 1 hora para logout
+
     function resetTimers() {
         clearTimeout(timeoutWarning);
         clearTimeout(timeoutLogout);
