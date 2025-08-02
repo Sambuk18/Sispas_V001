@@ -6,6 +6,9 @@ from flask_migrate import Migrate
 from sqlalchemy.orm import relationship
 from flask_mail import Mail
 from .middleware import setup_session_timeout
+from sqlalchemy.engine import Engine
+from sqlalchemy import event
+
 
 mail = Mail()
 
@@ -15,12 +18,28 @@ login_manager = LoginManager()
 migrate = Migrate()
 
 
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object('config.Config')
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)  # Ajusta el tiempo de sesión permanente
     app.config['SESSION_REFRESH_EACH_REQUEST'] = True
     # Inicializar extensiones con la app
+    if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite://'):
+            @event.listens_for(Engine, "connect")
+            def set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.close()
+
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 3600,
+        'pool_size': 10,
+        'max_overflow': 20,
+        'isolation_level': 'READ COMMITTED'
+    }
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
@@ -68,7 +87,8 @@ def create_app():
     app.register_blueprint(dbf_sync_bp, url_prefix='/recibos')
     app.register_blueprint(taller_bp, url_prefix='/taller')
     app.register_blueprint(vendedores_bp, url_prefix='/vendedores')
-        
+
+    
     
     @app.before_request
     def check_auth():

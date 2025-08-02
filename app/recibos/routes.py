@@ -95,55 +95,121 @@ def sincronizar_datos():
 @bp.route('/recibos', methods=['GET', 'POST'])
 @login_required
 def list_recibos():
-    recibos = []
-    if request.method == 'POST':
-        fecha = request.form.get('fecha')
-    else:
-        fecha = date.today().isoformat()
-        
-    if request.method == 'POST':
-        fecha = request.form['fecha']
+    # Obtener parámetros
+    fecha = request.args.get('fecha', '')
+    fecha_desde = request.args.get('fecha_desde', '')
+    fecha_hasta = request.args.get('fecha_hasta', '')
+    productor_id = request.args.get('productor_id', '')
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    # Obtener lista de productores
+    productores = db.session.query(
+        Producto.num.label('id'),
+        Producto.apn.label('nombre')
+    ).order_by(Producto.apn).all()
+    
+    # Construir consulta base y contar total
+    base_query = """
+        SELECT COUNT(*) as total
+        FROM recibos r
+        JOIN con_gast c ON c.proint = r.pronro AND c.gas_nrecib = r.numero
+        JOIN scliente s ON s.nro_cli = r.num_cli
+        JOIN producto p ON p.num = r.pronro
+        WHERE 1=1
+    """
+    
+    params = {}
+    conditions = []
+
+    # Filtro por fecha específica
+    if fecha:
         try:
-            fecha_mysql = datetime.strptime(fecha, '%d/%m/%Y').strftime('%Y-%m-%d')
+            fecha_dt = datetime.strptime(fecha, '%Y-%m-%d').strftime('%Y-%m-%d')
+            conditions.append("DATE(r.fec_ope) = :fecha")
+            params['fecha'] = fecha_dt
         except ValueError:
-            fecha_mysql = fecha
-            
-        query = text("""
-            SELECT
-                CONCAT(LPAD(recibos.pronro, 4, '0'), '-', LPAD(recibos.numero, 8, '0')) AS recibo_completo,
-                DATE_FORMAT(recibos.fec_ope, '%d/%m/%Y') AS fec_ope,
-                scliente.cia_ase,
-                con_gast.des_gasto,
-                scliente.dom_cli,
-                scliente.loc_cli,
-                scliente.pat_ent,
-                scliente.mar_ca,
-                scliente.tip_o,
-                scliente.ano_mod,
-                producto.apn,
-                con_gast.gas_entrad,
-                recibos.poliza,
-                DATE_FORMAT(recibos.vencuot, '%d/%m/%Y') AS vencuot,
-                DATE_FORMAT(recibos.vdes, '%d/%m/%Y') AS vdes,
-                DATE_FORMAT(recibos.vhas, '%d/%m/%Y') AS vhas,
-                recibos.premio
-            FROM
-                con_gast
-                JOIN recibos ON con_gast.proint = recibos.pronro AND con_gast.gas_nrecib = recibos.numero
-                JOIN scliente ON scliente.nro_cli = recibos.num_cli
-                JOIN producto ON producto.num = recibos.pronro
-            WHERE
-                DATE(recibos.fec_ope) = :fecha
-            ORDER BY
-                recibos.fec_ope DESC;
-        """)
-        result = db.session.execute(query, {'fecha': fecha_mysql})
-        recibos = [row._asdict() for row in result]
-        
-    return render_template('consulta_recibos.html', 
-                         recibos=recibos, 
-                         fecha=request.form.get('fecha'), 
-                         current_date=date.today().isoformat())
+            pass
+    
+    # Filtro por rango de fechas
+    if fecha_desde and fecha_hasta:
+        try:
+            desde_dt = datetime.strptime(fecha_desde, '%Y-%m-%d').strftime('%Y-%m-%d')
+            hasta_dt = datetime.strptime(fecha_hasta, '%Y-%m-%d').strftime('%Y-%m-%d')
+            conditions.append("DATE(r.fec_ope) BETWEEN :fecha_desde AND :fecha_hasta")
+            params['fecha_desde'] = desde_dt
+            params['fecha_hasta'] = hasta_dt
+        except ValueError:
+            pass
+    
+    # Filtro por productor
+    if productor_id and productor_id != 'todos':
+        conditions.append("r.pronro = :productor_id")
+        params['productor_id'] = productor_id
+    
+    # Consulta para contar total
+    if conditions:
+        base_query += " AND " + " AND ".join(conditions)
+    
+    total = db.session.execute(text(base_query), params).scalar()
+    
+    # Consulta principal con paginación
+    query = """
+        SELECT
+            CONCAT(LPAD(r.pronro, 4, '0'), '-', LPAD(r.numero, 8, '0')) AS recibo_completo,
+            DATE_FORMAT(r.fec_ope, '%d/%m/%Y') AS fec_ope,
+            s.cia_ase,
+            c.des_gasto,
+            s.dom_cli,
+            s.loc_cli,
+            s.pat_ent,
+            s.mar_ca,
+            s.tip_o,
+            s.ano_mod,
+            p.apn AS nombre_productor,
+            c.gas_entrad,
+            r.poliza,
+            DATE_FORMAT(r.vencuot, '%d/%m/%Y') AS vencuot,
+            DATE_FORMAT(r.vdes, '%d/%m/%Y') AS vdes,
+            DATE_FORMAT(r.vhas, '%d/%m/%Y') AS vhas,
+            r.premio
+        FROM recibos r
+        JOIN con_gast c ON c.proint = r.pronro AND c.gas_nrecib = r.numero
+        JOIN scliente s ON s.nro_cli = r.num_cli
+        JOIN producto p ON p.num = r.pronro
+        WHERE 1=1
+    """
+    
+    if conditions:
+        query += " AND " + " AND ".join(conditions)
+    
+    query += " ORDER BY r.fec_ope DESC, r.pronro DESC, r.numero DESC"
+    query += " LIMIT :limit OFFSET :offset"
+    
+    params['limit'] = per_page
+    params['offset'] = (page - 1) * per_page
+    
+    # Ejecutar consulta
+    result = db.session.execute(text(query), params)
+    recibos = [row._asdict() for row in result]
+    
+    return render_template(
+        'consulta_recibos.html',
+        recibos=recibos,
+        productores=productores,
+        fecha=fecha,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        productor_id=productor_id,
+        current_date=date.today().isoformat(),
+        pagination={
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'pages': (total + per_page - 1) // per_page
+        }
+    )
 
 # Resto de las funciones relacionadas con PDFs (generar_pdf_debe, generar_pdf, formatear_fecha, numero_a_letras, etc.)
 # ... (mantener todas las funciones de generación de PDFs aquí)

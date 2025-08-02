@@ -2,11 +2,10 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer as Serializer
 from flask_login import UserMixin
-from app import db  # Solo importamos db aquí
-from app import login_manager  # Importamos login_manager desde __init__.py
+from app import db, login_manager  # Solo importamos db aquí # Importamos login_manager desde __init__.py
 from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, event, text
 from flask_migrate import Migrate
 from sqlalchemy.orm import relationship
 
@@ -229,7 +228,143 @@ class Recibos(db.Model):
 
     def __repr__(self):
         return f'<Recibos {self.numero} - {self.codigo}>'
+class RecibosNew(db.Model):
+    __tablename__ = 'recibos_new'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    pronro = db.Column(db.String(20), nullable=True)
+    numero = db.Column(db.String(20), nullable=True)
+    num_cli = db.Column(db.String(20), nullable=True)
+    planilla = db.Column(db.String(50), nullable=True)
+    codigo = db.Column(db.String(20), nullable=True)
+    seccion = db.Column(db.String(50), nullable=True)
+    poliza = db.Column(db.String(50), nullable=True)
+    endoso = db.Column(db.String(50), nullable=True)
+    operacion = db.Column(db.String(50), nullable=True)
+    fec_ope = db.Column(db.DateTime, nullable=True)
+    fereal = db.Column(db.DateTime, nullable=True)
+    vencuot = db.Column(db.DateTime, nullable=True)
+    vdes = db.Column(db.DateTime, nullable=True)
+    vhas = db.Column(db.DateTime, nullable=True)
+    moneda = db.Column(db.String(10), nullable=True)
+    prima = db.Column(db.Numeric(15, 2), nullable=True)
+    rec = db.Column(db.Numeric(15, 2), nullable=True)
+    deradm = db.Column(db.Numeric(15, 2), nullable=True)
+    impytas = db.Column(db.Numeric(15, 2), nullable=True)
+    premio = db.Column(db.Numeric(15, 2), nullable=True)
+    prerea = db.Column(db.Numeric(15, 2), nullable=True)
+    nrorec = db.Column(db.String(50), nullable=True)
+    nrocut = db.Column(db.String(50), nullable=True)
+    codpro = db.Column(db.String(50), nullable=True)
+    pend = db.Column(db.String(10), nullable=True)
+    control_hash = db.Column(db.String(32), nullable=False)
+    sync_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
+    dbf_source = db.Column(db.String(255), nullable=True)
+    original_id = db.Column(db.Integer, db.ForeignKey('recibos.id'), unique=True, nullable=False)
 
+
+    # Relación
+    original = db.relationship('Recibos', backref=db.backref('optimized', uselist=False))
+
+    def __repr__(self):
+        return f'<RecibosNew {self.numero} - {self.codigo}>'
+
+
+
+@event.listens_for(Recibos, 'after_insert')
+@event.listens_for(Recibos, 'after_update')
+def sync_to_recibos_new(mapper, connection, target):
+    """Listener para sincronizar Recibos -> RecibosNew con manejo robusto"""
+    try:
+        # Funciones de conversión segura
+        def safe_date(date_str):
+            if not date_str or str(date_str).strip() == '':
+                return None
+            try:
+                return datetime.strptime(str(date_str).strip(), '%Y-%m-%d')
+            except ValueError:
+                try:
+                    return datetime.strptime(str(date_str).strip(), '%d/%m/%Y')
+                except:
+                    return None
+
+        def safe_decimal(number_str):
+            if not number_str or str(number_str).strip() == '':
+                return None
+            try:
+                clean_num = str(number_str).strip().replace(',', '.')
+                clean_num = ''.join(c for c in clean_num if c.isdigit() or c in '.-')
+                return float(clean_num) if clean_num else None
+            except (ValueError, AttributeError):
+                return None
+
+        # Preparar datos con conversiones
+        data = {
+            'pronro': target.pronro if target.pronro else None,
+            'numero': target.numero if target.numero else None,
+            'num_cli': target.num_cli if target.num_cli else None,
+            'planilla': target.planilla if target.planilla else None,
+            'codigo': target.codigo if target.codigo else None,
+            'seccion': target.seccion if target.seccion else None,
+            'poliza': target.poliza if target.poliza else None,
+            'endoso': target.endoso if target.endoso else None,
+            'operacion': target.operacion if target.operacion else None,
+            'fec_ope': safe_date(target.fec_ope),
+            'fereal': safe_date(target.fereal),
+            'vencuot': safe_date(target.vencuot),
+            'vdes': safe_date(target.vdes),
+            'vhas': safe_date(target.vhas),
+            'moneda': target.moneda if target.moneda else None,
+            'prima': safe_decimal(target.prima),
+            'rec': safe_decimal(target.rec),
+            'deradm': safe_decimal(target.deradm),
+            'impytas': safe_decimal(target.impytas),
+            'premio': safe_decimal(target.premio),
+            'prerea': safe_decimal(target.prerea),
+            'nrorec': target.nrorec if target.nrorec else None,
+            'nrocut': target.nrocut if target.nrocut else None,
+            'codpro': target.codpro if target.codpro else None,
+            'pend': target.pend if target.pend else None,
+            'control_hash': target.control_hash,
+            'sync_date': target.sync_date,
+            'dbf_source': target.dbf_source if target.dbf_source else 'IMPORT_DBF',
+            'original_id': target.id
+        }
+
+        # Verificar existencia usando la conexión proporcionada
+        exists = connection.execute(
+            text("SELECT 1 FROM recibos_new WHERE original_id = :id"),
+            {'id': target.id}
+        ).scalar()
+
+        if exists:
+            # Actualización selectiva
+            set_clause = []
+            params = {'original_id': target.id}
+            for k, v in data.items():
+                if k != 'original_id':
+                    set_clause.append(f"{k} = :{k}")
+                    params[k] = v
+            
+            connection.execute(
+                text(f"UPDATE recibos_new SET {', '.join(set_clause)} WHERE original_id = :original_id"),
+                params
+            )
+        else:
+            # Inserción completa (solo campos no nulos)
+            cols = [k for k in data.keys() if data[k] is not None]
+            vals = [f":{k}" for k in cols]
+            params = {k: v for k, v in data.items() if v is not None}
+            
+            connection.execute(
+                text(f"INSERT INTO recibos_new ({', '.join(cols)}) VALUES ({', '.join(vals)})"),
+                params
+            )
+
+    except Exception as e:
+        current_app.logger.error(f"Error sincronizando recibo {target.id}: {str(e)}", exc_info=True)
+        # No hacer rollback aquí, dejar que la transacción principal lo maneje
+        raise
 
 class Producto(db.Model):
     __tablename__ = 'producto'

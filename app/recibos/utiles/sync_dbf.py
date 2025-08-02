@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy.exc import SQLAlchemyError
 from config import Config
 from app import db
+from app.models import Recibos 
 
 # Configuración de logging
 logger = logging.getLogger(__name__)
@@ -197,6 +198,87 @@ def _process_client_record(conn, table_name: str, record: Dict[str, Any], querie
         return 0, 0
 
 
+ # Asegúrate de importar tu modelo
+def _process_recibos_with_models(records: List[Dict[str, Any]]) -> Tuple[int, int, list]:
+    """Procesa registros de recibos usando modelos con manejo robusto"""
+    inserted, updated = 0, 0
+    errors = []
+
+    try:
+        # Procesar en lotes más pequeños
+        batch_size = 50
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i + batch_size]
+            with db.session.begin_nested():
+                for record in batch:
+                    try:
+                        control_hash = calculate_hash(record)
+                        existing = db.session.query(Recibos).filter_by(control_hash=control_hash).first()
+
+                        if existing:
+                            # Actualizar solo si hay cambios
+                            needs_update = False
+                            for field in Recibos.__table__.columns.keys():
+                                record_value = str(record.get(field.upper(), ''))
+                                if str(getattr(existing, field)) != record_value:
+                                    setattr(existing, field, record_value)
+                                    needs_update = True
+                            
+                            if needs_update:
+                                existing.sync_date = datetime.utcnow()
+                                updated += 1
+                        else:
+                            # Crear nuevo registro
+                            recibo = Recibos(
+                                pronro=str(record.get('PRONRO', '')),
+                                numero=str(record.get('NUMERO', '')),
+                                num_cli=str(record.get('NUM_CLI', '')),
+                                planilla=str(record.get('PLANILLA', '')),
+                                codigo=str(record.get('CODIGO', '')),
+                                seccion=str(record.get('SECCION', '')),
+                                poliza=str(record.get('POLIZA', '')),
+                                endoso=str(record.get('ENDOSO', '')),
+                                operacion=str(record.get('OPERACION', '')),
+                                fec_ope=str(record.get('FEC_OPE', '')),
+                                fereal=str(record.get('FEREAL', '')),
+                                vencuot=str(record.get('VENCUOT', '')),
+                                vdes=str(record.get('VDES', '')),
+                                vhas=str(record.get('VHAS', '')),
+                                moneda=str(record.get('MONEDA', '')),
+                                prima=str(record.get('PRIMA', '')),
+                                rec=str(record.get('REC', '')),
+                                deradm=str(record.get('DERADM', '')),
+                                impytas=str(record.get('IMPYTAS', '')),
+                                premio=str(record.get('PREMIO', '')),
+                                prerea=str(record.get('PREREA', '')),
+                                nrorec=str(record.get('NROREC', '')),
+                                nrocut=str(record.get('NROCUT', '')),
+                                codpro=str(record.get('CODPRO', '')),
+                                pend=str(record.get('PEND', '')),
+                                control_hash=control_hash,
+                                dbf_source='IMPORT_DBF'
+                            )
+                            db.session.add(recibo)
+                            inserted += 1
+
+                    except Exception as e:
+                        errors.append(f"Error procesando registro: {str(e)}")
+                        continue
+
+                # Commit del lote actual
+                try:
+                    db.session.commit()
+                except Exception as e:
+                    db.session.rollback()
+                    errors.append(f"Error en commit de batch: {str(e)}")
+                    continue
+
+        return inserted, updated, errors
+
+    except Exception as e:
+        db.session.rollback()
+        return 0, 0, [f"Error general: {str(e)}"]
+
 def insert_records(engine, table_name: str, records: List[Dict[str, Any]], batch_size: int = 100):
     """Inserta registros en la base de datos con manejo especial para carga inicial"""
     if not records:
@@ -204,6 +286,10 @@ def insert_records(engine, table_name: str, records: List[Dict[str, Any]], batch
 
     inserted, updated = 0, 0
     errors = []
+
+    # Caso especial para la tabla recibos
+    if table_name.lower() == 'recibos':
+        return _process_recibos_with_models(records)
 
     try:
         with engine.begin() as conn:

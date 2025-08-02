@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2>Consultar Recibos por Fecha</h2>
+        <h2>Consultar Recibos</h2>
         <form method="POST" action="{{ url_for('dbf_sync.sincronizar_datos') }}" onsubmit="mostrarCarga()">
             <button type="submit" class="btn btn-warning btn-sm">
                 <i class="fas fa-sync-alt"></i> Actualizar Datos
@@ -23,40 +23,71 @@
         </div>
     </div>
 
-    <form method="POST" class="mb-4">
-        <div class="form-group">
-            <label for="fecha">Fecha (DD-MM-AAAA):</label>
-            <input type="date" id="fecha" name="fecha" class="form-control w-25" 
-                   value="{{ fecha|default(current_date) }}" required>
+    <form method="GET" class="mb-4">
+        <div class="row g-3">
+            <!-- Filtro por fecha específica -->
+            <div class="col-md-3">
+                <label for="fecha">Fecha específica:</label>
+                <input type="date" id="fecha" name="fecha" class="form-control" 
+                       value="{{ fecha }}" onchange="document.getElementById('fecha_desde').value=''; document.getElementById('fecha_hasta').value=''">
+            </div>
+            
+            <!-- Filtro por rango de fechas -->
+            <div class="col-md-3">
+                <label for="fecha_desde">Desde:</label>
+                <input type="date" id="fecha_desde" name="fecha_desde" class="form-control" 
+                       value="{{ fecha_desde }}" onchange="document.getElementById('fecha').value=''">
+            </div>
+            <div class="col-md-3">
+                <label for="fecha_hasta">Hasta:</label>
+                <input type="date" id="fecha_hasta" name="fecha_hasta" class="form-control" 
+                       value="{{ fecha_hasta }}" onchange="document.getElementById('fecha').value=''">
+            </div>
+            
+            <!-- Filtro por productor -->
+            <div class="col-md-3">
+                <label for="productor_id">Productor:</label>
+                <select id="productor_id" name="productor_id" class="form-select">
+                    <option value="todos">Todos los productores</option>
+                    {% for p in productores %}
+                    <option value="{{ p.id }}" {% if productor_id == p.id|string %}selected{% endif %}>
+                        {{ p.nombre }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Botones -->
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">Filtrar</button>
+                <a href="{{ url_for('recibos.list_recibos') }}" class="btn btn-secondary">Limpiar</button>
+            </div>
         </div>
-        <button type="submit" class="btn btn-primary mt-2">Buscar</button>
     </form>
-
     {% if recibos %}
-        <h4>Recibos encontrados:</h4>
         <div class="table-responsive">
             <table class="table table-bordered table-striped table-sm">
                 <thead class="thead-dark">
                     <tr>
-                        <th>Prod-Recibo</th>
-                        <th>Compañía</th>
+                        <th>Recibo</th>
+                        <th>Fecha</th>
+                        <th>Productor</th>
                         <th>Cliente</th>
                         <th>Dominio</th>
                         <th>Vehículo</th>
-                        <th>Modelo</th>
-                        <th>Monto $</th>
-                        <th>Acción</th>
+                        <th>Monto</th>
+                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for recibo in recibos %}
                     <tr>
                         <td>{{ recibo.recibo_completo }}</td>
-                        <td>{{ recibo.cia_ase }}</td>
+                        <td>{{ recibo.fec_ope }}</td>
+                        <td>{{ recibo.nombre_productor }}</td>
                         <td>{{ recibo.des_gasto }}</td>
                         <td>{{ recibo.pat_ent }}</td>
-                        <td>{{ recibo.mar_ca }}</td>
-                        <td>{{ recibo.ano_mod }}</td>
+                        <td>{{ recibo.mar_ca }} {{ recibo.ano_mod }}</td>
                         <td>{{ "$ %.2f"|format(recibo.premio|float) }}</td>
                         <td>
                             <!-- Botón PDF simple -->
@@ -88,8 +119,54 @@
                 </tbody>
             </table>
         </div>
-    {% elif fecha %}
-        <p class="text-danger">No se encontraron recibos para la fecha proporcionada.</p>
+
+        <!-- Paginación -->
+        {% if pagination.pages > 1 %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination">
+                {% if pagination.page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('recibos.list_recibos', 
+                        page=pagination.page-1,
+                        fecha=fecha,
+                        fecha_desde=fecha_desde,
+                        fecha_hasta=fecha_hasta,
+                        productor_id=productor_id) }}">
+                        &laquo; Anterior
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in range(1, pagination.pages + 1) %}
+                    <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('recibos.list_recibos', 
+                            page=page_num,
+                            fecha=fecha,
+                            fecha_desde=fecha_desde,
+                            fecha_hasta=fecha_hasta,
+                            productor_id=productor_id) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                {% endfor %}
+                
+                {% if pagination.page < pagination.pages %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('recibos.list_recibos', 
+                        page=pagination.page+1,
+                        fecha=fecha,
+                        fecha_desde=fecha_desde,
+                        fecha_hasta=fecha_hasta,
+                        productor_id=productor_id) }}">
+                        Siguiente &raquo;
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    {% elif fecha or fecha_desde or fecha_hasta or productor_filter or recibo_filter %}
+        <p class="text-danger">No se encontraron recibos con los filtros proporcionados.</p>
     {% endif %}
 </div>
 {% endblock %}
